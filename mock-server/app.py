@@ -3,13 +3,18 @@ import json
 
 app = Flask(__name__)
 
-with open('data/customers.json') as f:
+# Load data
+with open("data/customers.json") as f:
     customers = json.load(f)
 
-@app.route('/api/customers')
+@app.route("/api/health")
+def health():
+    return jsonify({"status": "ok"})
+
+@app.route("/api/customers", methods=["GET"])
 def get_customers():
-    page = int(request.args.get('page', 1))
-    limit = int(request.args.get('limit', 10))
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
 
     start = (page - 1) * limit
     end = start + limit
@@ -21,15 +26,12 @@ def get_customers():
         "limit": limit
     })
 
-@app.route('/api/customers/<id>')
+@app.route("/api/customers/<id>", methods=["GET"])
 def get_customer(id):
     for c in customers:
         if c["customer_id"] == id:
             return jsonify(c)
-    return {"error": "Not found"}, 404
+    return jsonify({"error": "Not found"}), 404
 
-@app.route('/api/health')
-def health():
-    return {"status": "ok"}
-
-app.run(host='0.0.0.0', port=5001)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

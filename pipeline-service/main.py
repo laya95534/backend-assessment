@@ -1,10 +1,16 @@
+import time
+
 from fastapi import FastAPI
 import requests
 from database import SessionLocal, engine
 from models import Base, Customer
 
-app = FastAPI()   # ✅ MUST be before @app
+# ⏳ wait for postgres
 
+
+app = FastAPI()
+
+# create tables
 Base.metadata.create_all(bind=engine)
 
 
@@ -12,7 +18,7 @@ Base.metadata.create_all(bind=engine)
 def ingest():
     db = SessionLocal()
 
-    res = requests.get("http://mock-server:5001/api/customers?page=1&limit=10").json()
+    res = requests.get("http://mock-server:5000/api/customers?page=1&limit=10").json()
 
     for c in res["data"]:
         customer_data = {
@@ -27,13 +33,24 @@ def ingest():
             "created_at": c["created_at"]
         }
 
-        db.add(Customer(**customer_data))
+        # ✅ UPSERT
+        existing = db.query(Customer).filter(Customer.customer_id == c["customer_id"]).first()
+
+        if existing:
+            for key, value in customer_data.items():
+                setattr(existing, key, value)
+        else:
+            db.add(Customer(**customer_data))
 
     db.commit()
+    db.close()
+
     return {"status": "success"}
 
 
 @app.get("/api/customers")
 def get_customers():
     db = SessionLocal()
-    return db.query(Customer).all()
+    data = db.query(Customer).all()
+    db.close()
+    return data
